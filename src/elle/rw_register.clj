@@ -176,11 +176,14 @@
                          (ext-fn (:value op))))
                {})))
 
+
+
 (defn initial-state-version-graphs
   "We assume the initial state of every key is `nil`; every version trivially
   comes after it. We take a history and return a map of keys to version graphs
   encoding this relationship."
   [history]
+  (println "hello")
   (reduce (fn op [vgs op]
             (if (or (h/invoke? op)
                     (h/fail?   op))
@@ -189,6 +192,13 @@
                     writes (txn/ext-writes txn)
                     ; For reads, we only know their values when the op is OK.
                     reads  (when (h/ok? op) (txn/ext-reads txn))]
+                ;; (println "op" op)
+                ;; (println "writes" writes)
+                ;; (println "reads" reads)
+                ;; (println "vgs" vgs)
+                ;; For each key, we maintain, currKeyVer, the current numeric version last seen
+                ;; in the history for that write. If we see a write to that key
+                ;; with a version that is currKeyVer + 1, we can infer that edge in version order.
                 (->> (concat writes reads)
                      ; OK, now iterate over kv maps, building up our version
                      ; graph.
@@ -201,6 +211,45 @@
                                vgs)))))
           {}
           history))
+
+
+;; Given a history where every op is annotated with a number 'version' for the
+;; writes in that op, generate a map of keys to a vector of all values (i.e.
+;; versions) written to that key, sorted by version number.
+(defn key-writes-version-sorted-map [history]
+  (->
+    (reduce (fn [m op]
+            (if (or (h/invoke? op)
+                    (h/fail?   op))
+              m
+              (let [txn (:value op)
+                    writes (txn/ext-writes txn)
+                    version (:version op)]
+                (reduce (fn [m [k v]] (update m k (fn [vs] (conj vs {:value v :version version})))) m writes))))
+            {}
+            history)
+    (update-vals ,,, (fn [vs] (sort-by :version vs)))
+  )
+)
+
+;; If ops have been explicitly annotated with version information (e.g.
+;; extracted via whitebox system instrumentation), we can use that to directly
+;; infer the edges in the version ordering.
+(defn explicit-version-order-graphs
+  [history]
+  (println "---------- run EXPLICIT VERSION ORDER GRAPHS") 
+  (let [versionEdgeMap (-> 
+      ;; Extract map of writes for each key, sorted ascending by version.
+      (key-writes-version-sorted-map history) 
+      ;; Convert each ascending version write list into list of version graph edges.
+      (update-vals ,,, (fn [vs] (partition 2 1 (sort-by :version vs)))))
+    ]              
+   (println "versionEdgeMap" versionEdgeMap)    
+   ;; Now, for each key in the map of keys, reduce over its
+   ;; list of version graph edges for a single key, building up a version graph
+   ;; for that key.
+   (update-vals versionEdgeMap (fn [edges] (reduce (fn [vg [ei ej]] (g/link vg (:value ei) (:value ej))) (g/digraph) edges)))
+))
 
 (defn wfr-version-graphs
   "If we assume that within a transaction, writes follow reads, then we can
@@ -578,6 +627,10 @@
   [opts history]
   (loop [analyzers (cond-> [{:name    :initial-state
                              :grapher initial-state-version-graphs}]
+                      
+                     (:explicit-version-order-keys? opts)
+                     (conj {:name     :explicit-version-order-keys
+                            :grapher  explicit-version-order-graphs})
 
                      (:wfr-keys? opts)
                      (conj {:name     :wfr-keys
@@ -651,6 +704,8 @@
                  v1-writes (get k-writes v1)
                  v2-writes (get k-writes v2)
                  all-vals  (set (concat v1-reads v1-writes v2-writes))]
+             
+            ;;  (println "recurring linking to all")
              (recur (-> g
                         (g/link-all-to-all v1-writes v2-writes ww)
                         (g/link-all-to-all v1-reads v2-writes rw)
@@ -724,9 +779,11 @@
 
   In addition, we infer a dependency edge from nil to every non-nil value."
   [opts history]
+  (println "versiongraphs" (version-graphs opts history))
   (let [{:keys [anomalies sources graphs]} (version-graphs opts history)
         tg  (version-graphs->transaction-graph history graphs)]
     ; We might have found anomalies when computing the version graph
+    (println "tg" tg)
     {:anomalies anomalies
      :graph     tg
      :explainer (elle/->CombinedExplainer [(WWExplainer. graphs)
@@ -822,6 +879,7 @@
 
   TODO: maybe use writes-follow-reads(?) to infer more versions from wr deps?"
   [opts history]
+;;   (println "---------- run WR GRAPH")
   (let [; Build our combined analyzers
         analyzers (into [wr-graph (partial ww+rw-graph opts)]
                         (ct/additional-graphs opts))

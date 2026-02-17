@@ -1,4 +1,4 @@
-(defproject elle "0.2.6-SNAPSHOT"
+(defproject elle "0.2.7"
   :description "Black-box transactional consistency checker based on cycle detection"
   :url "https://github.com/jepsen-io/elle"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -27,9 +27,11 @@
                                   [spootnik/unilog "0.7.32"]]}}
   :jvm-opts ["-server"
              "-XX:-OmitStackTraceInFastThrow"
+             "-Djava.awt.headless=true"
              ;"-XX:+PrintGC"
              ;"-agentpath:/home/aphyr/yourkit/bin/linux-x86-64/libyjpagent.so=disablestacktelemetry,exceptions=disable,delay=10000,usedmem=50"
              ]
+  :main elle.main
   :repl-options {:init-ns elle.core}
   :test-selectors {:default (fn [m] (not (or (:perf m)
                                              (:interactive m)
