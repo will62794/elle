@@ -5,6 +5,10 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clj-commons/slingshot "0.13.0"]
                  [com.aphyr/bifurcan-clj "0.1.3"]
+                 [org.clojure/tools.cli "1.0.206"]
+                 [org.clojure/tools.logging "1.1.0"]
+                 [org.clojure/data.json "2.4.0"]
+                 [spootnik/unilog "0.7.28"]
                  ; Has to be here for our java classes to use Clojure
                  [org.clojure/clojure "1.12.3"]
                  [dom-top "1.0.9"]

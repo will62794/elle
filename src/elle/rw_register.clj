@@ -244,7 +244,7 @@
       ;; Convert each ascending version write list into list of version graph edges.
       (update-vals ,,, (fn [vs] (partition 2 1 (sort-by :version vs)))))
     ]              
-   (println "versionEdgeMap" versionEdgeMap)    
+;;    (println "versionEdgeMap" versionEdgeMap)    
    ;; Now, for each key in the map of keys, reduce over its
    ;; list of version graph edges for a single key, building up a version graph
    ;; for that key.
@@ -779,11 +779,11 @@
 
   In addition, we infer a dependency edge from nil to every non-nil value."
   [opts history]
-  (println "versiongraphs" (version-graphs opts history))
+;;   (println "versiongraphs" (version-graphs opts history))
   (let [{:keys [anomalies sources graphs]} (version-graphs opts history)
         tg  (version-graphs->transaction-graph history graphs)]
     ; We might have found anomalies when computing the version graph
-    (println "tg" tg)
+    ;; (println "tg" tg)
     {:anomalies anomalies
      :graph     tg
      :explainer (elle/->CombinedExplainer [(WWExplainer. graphs)
