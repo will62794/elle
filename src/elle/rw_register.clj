@@ -183,7 +183,6 @@
   comes after it. We take a history and return a map of keys to version graphs
   encoding this relationship."
   [history]
-  (println "hello")
   (reduce (fn op [vgs op]
             (if (or (h/invoke? op)
                     (h/fail?   op))
@@ -237,7 +236,7 @@
 ;; infer the edges in the version ordering.
 (defn explicit-version-order-graphs
   [history]
-  (println "---------- run EXPLICIT VERSION ORDER GRAPHS") 
+  (println "-- Running graph inference with explicit version orders.") 
   (let [versionEdgeMap (-> 
       ;; Extract map of writes for each key, sorted ascending by version.
       (key-writes-version-sorted-map history) 
